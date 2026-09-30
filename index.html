@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Biblioteca La Piedad</title>
+<link href="https://fonts.googleapis.com/css2?family=Literata:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f4;--card:#fff;--ink:#10232b;--mut:#5a6b73;--acc:#1f6f8b;--acc2:#e3f0f5;--ok:#1d7a4d;--bad:#b4472f;--wa:#9a6a00;--line:#d3dde1;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a20;--card:#16262e;--ink:#e6eef1;--mut:#9bb0b9;--acc:#5bb6d4;--acc2:#1b3a47;--ok:#58c58e;--bad:#ef8a72;--wa:#e0b252;--line:#2b414b}}
+:root[data-theme="dark"]{--bg:#0e1a20;--card:#16262e;--ink:#e6eef1;--mut:#9bb0b9;--acc:#5bb6d4;--acc2:#1b3a47;--ok:#58c58e;--bad:#ef8a72;--wa:#e0b252;--line:#2b414b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:var(--ink);color:var(--bg);padding:18px 16px 14px}
+h1{font:700 1.6rem/1.2 Literata,Georgia,serif;margin:0}
+header p{margin:2px 0 12px;opacity:.75;font-size:.9rem}
+.roles{display:flex;gap:6px;flex-wrap:wrap}
+.roles button{border:1px solid rgba(255,255,255,.4);background:none;color:inherit;padding:6px 14px;border-radius:99px;cursor:pointer;font:inherit}
+.roles button.on{background:var(--bg);color:var(--ink)}
+main{max-width:900px;margin:0 auto;padding:14px}
+nav{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:14px}
+nav button{border:0;background:none;color:var(--mut);padding:10px 12px;cursor:pointer;font:inherit;border-bottom:3px solid transparent;white-space:nowrap}
+nav button.on{color:var(--acc);border-color:var(--acc);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+h2{font:700 1.15rem Literata,Georgia,serif;margin:0 0 10px}
+label{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 3px}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font:inherit;font-weight:600;margin-top:10px}
+.btn.s{padding:6px 12px;margin:0;font-size:.85rem}
+:focus-visible{outline:3px solid var(--wa);outline-offset:2px}
+.book{display:flex;justify-content:space-between;gap:10px;align-items:center;border-top:1px solid var(--line);padding:10px 0}
+.book:first-of-type{border:0}
+.book b{display:block}.book small{color:var(--mut)}
+.tag{font-size:.78rem;padding:2px 9px;border-radius:99px;font-weight:600;white-space:nowrap}
+.d{background:#dff3e8;color:var(--ok)}.p{background:#f8e1db;color:var(--bad)}.r{background:#fbefc9;color:var(--wa)}
+.msg{padding:10px 12px;border-radius:8px;margin:0 0 10px;background:var(--acc2)}
+.msg.bad{background:#f8e1db;color:#7d2b19}.msg.ok{background:#dff3e8;color:#14593a}
+.bar{height:14px;background:var(--acc);border-radius:4px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.mut{color:var(--mut);font-size:.85rem}
+</style>
+</head>
+<body>
+<header>
+<h1>Biblioteca La Piedad</h1>
+<p>Catálogo, préstamos y gestión</p>
+<div class="roles" id="roles"></div>
+</header>
+<main>
+<nav id="nav"></nav>
+<div id="msg"></div>
+<div id="view"></div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const MULTA=500, PLAZO=8;
+let RES_DIAS=3; // supuesto: pregunta pendiente al cliente
+const iso=d=>d.toISOString().slice(0,10);
+const add=(s,n)=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()+n);return iso(d)};
+const HOY=iso(new Date());
+const diff=(a,b)=>Math.round((new Date(a+"T12:00:00")-new Date(b+"T12:00:00"))/864e5);
+const money=n=>"$"+n.toLocaleString("es-CO");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let books=[
+["LIB-001","Cien años de soledad","Gabriel García Márquez","Sudamericana","A-01"],
+["LIB-002","El coronel no tiene quien le escriba","Gabriel García Márquez","Sudamericana","A-01"],
+["LIB-003","La vorágine","José Eustasio Rivera","Panamericana","A-02"],
+["LIB-004","María","Jorge Isaacs","Norma","A-02"],
+["LIB-005","Don Quijote de la Mancha","Miguel de Cervantes","Alfaguara","B-03"],
+["LIB-006","Rayuela","Julio Cortázar","Alfaguara","B-04"],
+["LIB-007","El principito","Antoine de Saint-Exupéry","Salamandra","C-01"],
+["LIB-008","Pedro Páramo","Juan Rulfo","RM","B-05"]
+].map(([code,title,author,pub,shelf])=>({code,title,author,pub,shelf,res:null}));
+const users=[{id:"u1",name:"Laura Gómez"},{id:"u2",name:"Andrés Restrepo"},{id:"u3",name:"Camila Torres"}];
+let loans=[
+{id:1,code:"LIB-003",user:"u1",out:add(HOY,-10),due:add(HOY,-2),ret:null,fine:0},
+{id:2,code:"LIB-005",user:"u2",out:add(HOY,-7),due:add(HOY,1),ret:null,fine:0},
+{id:3,code:"LIB-001",user:"u3",out:add(HOY,-20),due:add(HOY,-12),ret:add(HOY,-12),fine:0},
+{id:4,code:"LIB-001",user:"u2",out:add(HOY,-3),due:add(HOY,5),ret:add(HOY,-1),fine:0},
+{id:5,code:"LIB-007",user:"u1",out:add(HOY,-40),due:add(HOY,-32),ret:add(HOY,-30),fine:1000}
+];
+let staff=false,fails=0,lockUntil=0,idle,editing=null,confirmDel=null,nextLoan=6, nextUser=4, role="usuario", tab="registro", me=null, q="", lastMs=null;
+
+const tabs={usuario:[["registro","Registrarme"],["buscar","Buscar libros"],["mis","Mi cuenta"]],
+bibliotecario:[["prestar","Prestar"],["devolver","Devolver"],["reservas","Reservas"],["nuevo","Libros"],["reporte","Reporte mensual"],["config","Reglas"]]};
+const roleNames={usuario:"Usuario",bibliotecario:"Bibliotecario/Auxiliar"};
+
+const H=async t=>[...new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)))].map(b=>b.toString(16).padStart(2,"0")).join("");
+const DEMO="biblioteca1",STAFF_USER="bibliotecario",STAFF_CLAVE="Portal#2026Seguro";let STAFF_PW="";
+const ctl=b=>confirmDel===b.code?`<button class="btn s" style="background:var(--bad)" onclick="delBook('${b.code}')">Sí, eliminar</button> <button class="btn s" onclick="confirmDel=null;draw()">No</button>`:`<button class="btn s" onclick="editing='${b.code}';draw()">Editar</button> <button class="btn s" style="background:var(--bad)" onclick="confirmDel='${b.code}';draw()">Eliminar</button>`;
+const loanOf=c=>loans.find(l=>l.code===c&&!l.ret);
+function estado(b){
+ const l=loanOf(b.code);
+ if(l)return{t:"Prestado hasta "+l.due,c:"p",ok:false};
+ if(b.res){ if(diff(HOY,b.res.exp)>0){b.res=null}else return{t:"Reservado ("+userName(b.res.user)+") hasta "+b.res.exp,c:"r",ok:false};}
+ return{t:"Disponible",c:"d",ok:true};
+}
+const userName=id=>(users.find(u=>u.id===id)||{}).name||id;
+function say(t,k){$("#msg").innerHTML=t?`<p class="msg ${k||""}" role="status">${t}</p>`:""}
+function setRole(r){if(r==="usuario")staff=false;role=r;tab=tabs[r][0];say("");draw()}
+const locked=()=>role==="bibliotecario"&&!staff;
+function touch(){clearTimeout(idle);if(staff)idle=setTimeout(()=>{staff=false;say("Sesión del personal cerrada por inactividad.","bad");draw()},3e5)}
+document.addEventListener("click",touch);
+function salirStaff(){staff=false;role="usuario";tab="registro";say("Cerraste la sesión del personal.","ok");draw()}
+async function staffLogin(){const u=$("#su").value.trim(),p=$("#sp").value;
+ if(Date.now()<lockUntil)return say(`Acceso bloqueado por intentos fallidos. Espera ${Math.ceil((lockUntil-Date.now())/1000)} s.`,"bad");
+ if(u===STAFF_USER&&STAFF_PW&&await H(p)===STAFF_PW){fails=0;staff=true;tab="prestar";say("Sesión del personal iniciada.","ok");touch();return draw()}
+ fails++;if(fails>=3){fails=0;lockUntil=Date.now()+3e4;return say("3 intentos fallidos. Acceso bloqueado por 30 segundos.","bad")}
+ say(`Usuario o contraseña incorrectos. Intentos restantes: ${3-fails}.`,"bad")}
+
+function draw(){
+ $("#roles").innerHTML=Object.keys(roleNames).map(r=>`<button class="${r===role?"on":""}" onclick="setRole('${r}')">${roleNames[r]}</button>`).join("");
+ $("#nav").innerHTML=locked()?"":tabs[role].map(([k,n])=>`<button class="${k===tab?"on":""}" onclick="tab='${k}';say('');draw()">${n}</button>`).join("");
+ $("#view").innerHTML=locked()?views.login():(role==="bibliotecario"?`<p class="msg ok">Sesión del personal activa. Se cierra tras 5 minutos sin actividad. <button class="btn s" style="margin-left:8px" onclick="salirStaff()">Cerrar sesión</button></p>`:"")+views[tab]();
+}
+const bookRow=(b,btn,ctl2)=>{const e=estado(b);return`<div class="book"><div><b>${esc(b.title)}</b><small>${esc(b.author)} · ${esc(b.pub)} · ${b.code} · Estante ${b.shelf}</small></div><div style="text-align:right"><span class="tag ${e.c}">${e.t}</span>${btn&&e.ok?`<br><br>`+btn(b):""}${ctl2?`<br><br>`+ctl2(b):""}</div></div>`};
+
+const views={
+registro(){
+ return`<div class="card"><h2>Crear mi cuenta</h2><p class="mut">Necesitas una cuenta para reservar libros.</p>
+ <div class="row"><div><label for="rn">Nombre completo</label><input id="rn" autocomplete="name"></div>
+ <div><label for="rdoc">Documento de identidad</label><input id="rdoc" inputmode="numeric"></div>
+ <div><label for="rm">Correo electrónico</label><input id="rm" type="email" autocomplete="email"></div>
+ <div><label for="rt">Celular</label><input id="rt" type="tel" inputmode="tel"></div>
+ <div><label for="rp1">Contraseña (mínimo 6 caracteres)</label><input id="rp1" type="password" autocomplete="new-password"></div>
+ <div><label for="rp2">Repite la contraseña</label><input id="rp2" type="password" autocomplete="new-password"></div></div>
+ <label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px"><input id="rc" type="checkbox" style="width:auto;margin-top:4px"><span>Autorizo el tratamiento de mis datos personales según la Ley 1581 de 2012, solo para los servicios de la biblioteca.</span></label>
+ <button class="btn" onclick="registrar()">Crear cuenta</button></div>
+ <div class="card"><h2>Ya tengo cuenta</h2><label for="ing">Usuario</label><select id="ing"><option value="">Selecciona tu nombre</option>${users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join("")}</select>
+ <label for="ipw">Contraseña</label><input id="ipw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')ingresar()">
+ <button class="btn" onclick="ingresar()">Ingresar</button>
+ <p class="mut">Cuentas de ejemplo (Laura, Andrés y Camila): contraseña <b>biblioteca1</b>.</p></div>`},
+buscar(){
+ const t0=performance.now();
+ const s=q.toLowerCase();
+ const r=books.filter(b=>!s||[b.title,b.author,b.code].some(x=>x.toLowerCase().includes(s)));
+ lastMs=(performance.now()-t0).toFixed(1);
+ return`<div class="card"><h2>Catálogo</h2>
+ <label for="q">Título, autor o código</label>
+ <input id="q" type="search" value="${esc(q)}" oninput="q=this.value;keepFocus()" placeholder="Ej.: García Márquez, LIB-006">
+ <p class="mut">${r.length} resultado(s) en ${lastMs} ms · Reservar requiere una cuenta.</p>
+ ${sesion()}</div>
+ <div class="card" id="res">${resultList(r)}</div>`},
+mis(){
+ if(!me)return`<div class="card"><h2>Mi cuenta</h2><p>Primero regístrate o ingresa para ver tus préstamos, reservas y avisos.</p><button class="btn" onclick="tab='registro';draw()">Ir a registrarme</button></div>`;
+ const ml=loans.filter(l=>l.user===me&&!l.ret);
+ const rs=books.filter(b=>b.res&&b.res.user===me&&estado(b).c==="r");
+ const av=ml.map(l=>{const n=diff(l.due,HOY);return n<0?`<p class="msg bad"><b>Vencido:</b> ${esc(bookT(l.code))} debió devolverse el ${l.due}. Multa acumulada: ${money(-n*MULTA)}.</p>`:n<=2?`<p class="msg"><b>Recordatorio:</b> ${esc(bookT(l.code))} vence ${n===0?"hoy":"en "+n+" día(s)"} (${l.due}).</p>`:""}).join("");
+ return`<div class="card"><h2>Mi cuenta</h2>${sesion()}</div>
+ <div class="card"><h2>Notificaciones</h2>${av||'<p class="mut">Sin avisos de devolución por ahora.</p>'}</div>
+ <div class="card"><h2>Préstamos activos</h2>${ml.map(l=>`<div class="book"><div><b>${esc(bookT(l.code))}</b><small>Prestado ${l.out} · Devolver ${l.due}</small></div></div>`).join("")||'<p class="mut">No tienes préstamos activos.</p>'}</div>
+ <div class="card"><h2>Mis reservas</h2>${rs.map(b=>`<div class="book"><div><b>${esc(b.title)}</b><small>Reclámalo antes del ${b.res.exp}</small></div></div>`).join("")||'<p class="mut">No tienes reservas.</p>'}</div>`},
+prestar(){
+ const disp=books.filter(b=>loanOf(b.code)==null&&(!b.res||estado(b).ok||b.res.user));
+ const cand=books.filter(b=>!loanOf(b.code)&&(estado(b).ok||(b.res&&estado(b).c==="r")));
+ return`<div class="card"><h2>Registrar préstamo</h2><p class="mut">Plazo fijo de ${PLAZO} días calendario.</p>
+ <div class="row"><div><label for="pu">Usuario</label><select id="pu">${users.map(u=>`<option value="${u.id}">${u.name}</option>`).join("")}</select></div>
+ <div><label for="pb">Libro</label><select id="pb">${cand.map(b=>`<option value="${b.code}">${b.code} · ${esc(b.title)}${b.res?" (reservado por "+userName(b.res.user)+")":""}</option>`).join("")}</select></div></div>
+ <button class="btn" onclick="prestar()">Registrar préstamo</button></div>
+ <div class="card"><h2>Préstamos activos</h2>${loanTable(loans.filter(l=>!l.ret),false,true)}</div>`},
+devolver(){
+ const act=loans.filter(l=>!l.ret);
+ return`<div class="card"><h2>Registrar devolución</h2><p class="mut">Multa de ${money(MULTA)} por cada día de retraso.</p>
+ <div class="row"><div><label for="dl">Préstamo</label><select id="dl">${act.map(l=>`<option value="${l.id}">${bookT(l.code)} — ${userName(l.user)} (vence ${l.due})</option>`).join("")||"<option value=''>Sin préstamos activos</option>"}</select></div>
+ <div><label for="dd">Fecha de devolución</label><input id="dd" type="date" value="${HOY}"></div></div>
+ <button class="btn" onclick="devolver()">Registrar devolución</button></div>
+ <div class="card"><h2>Multas registradas</h2>${loanTable(loans.filter(l=>l.fine>0),true)}</div>
+ <div class="card"><h2>Historial de préstamos</h2>${loanTable([...loans].reverse(),true)}</div>`},
+login(){return`<div class="card"><h2>Acceso del personal</h2><p class="mut">Solo el bibliotecario autorizado puede gestionar libros, reservas y préstamos.</p>
+ <label for="su">Usuario del personal</label><input id="su" autocomplete="username">
+ <label for="sp">Contraseña</label><input id="sp" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')staffLogin()">
+ <button class="btn" onclick="staffLogin()">Entrar</button>
+ <p class="mut">Seguridad: bloqueo de 30 s tras 3 intentos fallidos y cierre automático por inactividad.<br>Cuenta de ejemplo: <b>${STAFF_USER}</b> / <b>${STAFF_CLAVE}</b></p></div>`},
+reservas(){const rs=books.filter(b=>b.res&&estado(b).c==="r");
+ return`<div class="card"><h2>Reservas activas (${rs.length})</h2><p class="mut">Vigencia de cada reserva: ${RES_DIAS} día(s).</p>${rs.map(b=>`<div class="book"><div><b>${esc(b.title)}</b><small>${esc(userName(b.res.user))} · vence ${b.res.exp}</small></div><div style="display:flex;gap:6px"><button class="btn s" onclick="resPrestar('${b.code}')">Entregar</button><button class="btn s" style="background:var(--bad)" onclick="cancelRes('${b.code}')">Cancelar</button></div></div>`).join("")||'<p class="mut">No hay reservas activas.</p>'}</div>`},
+nuevo(){const e=books.find(b=>b.code===editing)||{};const f=(i,l,k,x="")=>`<div><label for="${i}">${l}</label><input id="${i}" value="${esc(e[k]||"")}" ${x}></div>`;
+ return`<div class="card"><h2>${editing?"Editar libro":"Registrar libro nuevo"}</h2><div class="row">
+ ${f("nc","Código","code",editing?"readonly":'placeholder="LIB-009"')}${f("nt","Título","title")}${f("na","Autor","author")}${f("np","Editorial","pub")}${f("ns","Ubicación en el estante","shelf")}</div>
+ <button class="btn" onclick="nuevo()">${editing?"Guardar cambios":"Guardar libro"}</button>${editing?` <button class="btn" style="background:var(--mut)" onclick="editing=null;draw()">Cancelar</button>`:""}</div>
+ <div class="card"><h2>Catálogo (${books.length})</h2>${books.map(b=>bookRow(b,null,ctl)).join("")}</div>`},
+reporte(){
+ const m=window.mes||HOY.slice(0,7);
+ const cnt={};loans.filter(l=>l.out.startsWith(m)).forEach(l=>cnt[l.code]=(cnt[l.code]||0)+1);
+ const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+ const mx=top.length?top[0][1]:1;
+ const multas=loans.filter(l=>l.ret&&l.ret.startsWith(m)).reduce((s,l)=>s+l.fine,0);
+ return`<div class="card"><h2>Libros más prestados</h2><label for="mes">Mes</label><input id="mes" type="month" value="${m}" onchange="window.mes=this.value;draw()">
+ <div style="margin-top:12px">${top.map(([c,n])=>`<p style="margin:8px 0"><span>${esc(bookT(c))}</span> <b>· ${n}</b><div class="bar" style="width:${n/mx*100}%"></div></p>`).join("")||'<p class="mut">No hubo préstamos en este mes.</p>'}</div></div>
+ <div class="card"><h2>Resumen del mes</h2><p>Préstamos: <b>${Object.values(cnt).reduce((a,b)=>a+b,0)}</b> · Multas cobradas: <b>${money(multas)}</b> · Libros en catálogo: <b>${books.length}</b></p>
+ <button class="btn s" onclick="window.print()">Imprimir reporte</button></div>`},
+config(){
+ return`<div class="card"><h2>Reglas de gestión</h2><p>Plazo de préstamo: <b>${PLAZO} días</b> · Multa: <b>${money(MULTA)}/día</b></p>
+ <label for="rd">Días de vigencia de una reserva</label><input id="rd" type="number" min="1" max="15" value="${RES_DIAS}" onchange="RES_DIAS=+this.value;say('Vigencia de reserva actualizada a '+RES_DIAS+' día(s).','ok')">
+ <p class="mut">Supuesto mientras el cliente responde cuántos días debe durar una reserva.</p></div>
+ <div class="card"><h2>Requisitos cubiertos</h2><div class="tw"><table>${REQ.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td></tr>`).join("")}</table></div></div>`}
+};
+const REQ=[["RF-01","Buscar por título, autor o código (Usuario › Buscar libros)"],["RF-02","Disponibilidad visible en cada resultado"],["RF-03","Registro de usuario y reserva de libro desde la cuenta"],["RF-04","Préstamo con plazo de 8 días (Bibliotecario › Prestar)"],["RF-05","Multa de $500 por día de retraso al devolver"],["RF-06","Recordatorio de vencimiento (Usuario › Mi cuenta)"],["RF-07","Reporte mensual de más prestados (Bibliotecario › Reporte mensual)"],["RF-08","Registro, edición y retiro de libros (Bibliotecario › Libros)"],["RNF-01","Tiempo de búsqueda medido en pantalla (meta ≤ 3 s)"],["RNF-02","Búsqueda y reserva en pocos pasos, diseño adaptable a celular"],["RNF-03","Acceso por rol: el personal entra con usuario y contraseña, con bloqueo tras 3 intentos y cierre por inactividad"],["RNF-04","Datos locales del navegador; la disponibilidad depende del hosting"]];
+const bookT=c=>(books.find(b=>b.code===c)||{}).title||c;
+function resultList(r){return r.map(b=>bookRow(b,x=>`<button class="btn s" onclick="reservar('${x.code}')">Reservar</button>`)).join("")||'<p class="mut">Sin resultados. Prueba con otro título, autor o código.</p>'}
+function keepFocus(){$("#res").innerHTML=resultList(books.filter(b=>{const s=q.toLowerCase();return !s||[b.title,b.author,b.code].some(x=>x.toLowerCase().includes(s))}));const t=$("#q");}
+function loanTable(ls,f,a){return`<div class="tw"><table><tr><th>Libro</th><th>Usuario</th><th>Salida</th><th>Vence</th><th>Estado</th>${f?"<th>Multa</th>":""}${a?"<th></th>":""}</tr>${ls.map(l=>`<tr><td>${esc(bookT(l.code))}</td><td>${esc(userName(l.user))}</td><td>${l.out}</td><td>${l.due}</td><td>${l.ret?"Devuelto "+l.ret:"Activo"}</td>${f?`<td>${money(l.fine)}</td>`:""}${a?`<td><button class="btn s" style="background:var(--bad)" onclick="anular(${l.id})">Anular</button></td>`:""}</tr>`).join("")||'<tr><td colspan="7" class="mut">Nada por mostrar.</td></tr>'}</table></div>`}
+function anular(id){const l=loans.find(x=>x.id===id);loans=loans.filter(x=>x.id!==id);say(`Préstamo de “${esc(bookT(l.code))}” anulado.`,"ok");draw()}
+function cancelRes(c){const b=books.find(x=>x.code===c);b.res=null;say(`Reserva de “${esc(b.title)}” cancelada.`,"ok");draw()}
+function resPrestar(c){const b=books.find(x=>x.code===c),u=b.res.user;b.res=null;loans.push({id:nextLoan++,code:c,user:u,out:HOY,due:add(HOY,PLAZO),ret:null,fine:0});say(`Libro entregado a ${esc(userName(u))}. Vence el ${add(HOY,PLAZO)}.`,"ok");draw()}
+function delBook(c){const b=books.find(x=>x.code===c);confirmDel=null;if(loanOf(c)||estado(b).c==="r")return say("No se puede eliminar: el libro está prestado o reservado.","bad");books=books.filter(x=>x.code!==c);say(`Libro “${esc(b.title)}” eliminado del catálogo.`,"ok");draw()}
+function reservar(c){if(!me){tab="registro";say("Regístrate o ingresa antes de reservar un libro.","bad");return draw()}const b=books.find(x=>x.code===c);if(!estado(b).ok)return say("Ese libro ya no está disponible.","bad");
+ b.res={user:me,exp:add(HOY,RES_DIAS)};say(`Reservaste “${esc(b.title)}” a nombre de ${userName(me)}. Reclámalo antes del ${b.res.exp}.`,"ok");keepFocus()}
+function prestar(){const c=$("#pb").value,u=$("#pu").value;if(!c)return say("No hay libros disponibles para prestar.","bad");
+ const b=books.find(x=>x.code===c);if(b.res&&b.res.user!==u&&estado(b).c==="r")return say("Ese libro está reservado por otro usuario.","bad");
+ b.res=null;loans.push({id:nextLoan++,code:c,user:u,out:HOY,due:add(HOY,PLAZO),ret:null,fine:0});
+ say(`Préstamo registrado: ${esc(b.title)} para ${userName(u)}. Vence el ${add(HOY,PLAZO)}.`,"ok");draw()}
+function devolver(){const l=loans.find(x=>x.id==$("#dl").value);if(!l)return say("Selecciona un préstamo activo.","bad");
+ const d=$("#dd").value;if(!d||d<l.out)return say("La fecha de devolución no puede ser anterior a la del préstamo.","bad");
+ l.ret=d;l.fine=Math.max(0,diff(d,l.due))*MULTA;
+ say(l.fine?`Devolución registrada con ${diff(d,l.due)} día(s) de retraso. Multa: ${money(l.fine)}.`:"Devolución registrada a tiempo. Sin multa.",l.fine?"bad":"ok");draw()}
+function nuevo(){const v=i=>$("#"+i).value.trim();const b={code:v("nc").toUpperCase(),title:v("nt"),author:v("na"),pub:v("np"),shelf:v("ns")};
+ if(!b.code||!b.title||!b.author||!b.pub||!b.shelf)return say("Completa código, título, autor, editorial y ubicación.","bad");
+ if(editing){Object.assign(books.find(x=>x.code===editing),{title:b.title,author:b.author,pub:b.pub,shelf:b.shelf});editing=null;say(`Libro “${esc(b.title)}” actualizado.`,"ok");return draw()}
+ if(books.some(x=>x.code===b.code))return say("Ya existe un libro con ese código.","bad");
+ books.push({...b,res:null});say(`Libro “${esc(b.title)}” registrado en el estante ${esc(b.shelf)}.`,"ok");draw()}
+draw();
+(async()=>{for(const u of users)if(!u.pw)u.pw=await H(DEMO);STAFF_PW=await H(STAFF_CLAVE)})();
+</script>
+</body>
+</html>
